@@ -19,6 +19,7 @@ FastAPI backend for an AI-powered call representative. Integrates Telnyx, Deepgr
 - Supabase Postgres needs the `pgvector` extension enabled.
 - Redis is used for call session state.
 - S3 is used for audio/transcript storage and signed URLs.
+- Telnyx media streaming expects a public `PUBLIC_BASE_URL` and uses `/api/v1/media/telnyx`.
 
 ## Deployment
 

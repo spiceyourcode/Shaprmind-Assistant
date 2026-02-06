@@ -3,15 +3,19 @@ from datetime import datetime
 
 from sqlalchemy import select
 
+from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.db.models import Call, CallMessage, CallStatus, CustomerProfile, MessageSender
+from app.db.models import Call, CallMessage, CallStatus, CustomerProfile, MessageSender, User
 from app.db.session import AsyncSessionLocal
 from app.schemas.calls import InboundCallWebhook
 from app.services.escalation import detect_sensitive
-from app.services.notifications import notify_escalation
+from app.services.media_bridge import register_call, unregister_call
+from app.services.notifications import notify_escalation, notify_user_channels
 from app.services.openai_client import get_openai_client
 from app.services.rag import rag_query
 from app.services.session_state import set_session
+from app.services.stt import create_stt_stream
+from app.services.telephony import start_media_stream, stop_media_stream
 from app.services.tts import create_tts_stream
 from app.services.vad import SileroVAD
 
@@ -23,6 +27,8 @@ async def handle_inbound_call(payload: InboundCallWebhook) -> None:
     async with AsyncSessionLocal() as session:
         call_id = uuid.uuid4()
         vad = SileroVAD()
+        audio_queue = register_call(str(call_id))
+        stt = await create_stt_stream(audio_queue)
         tts = await create_tts_stream()
 
         business_id = payload.business_id
@@ -53,16 +59,36 @@ async def handle_inbound_call(payload: InboundCallWebhook) -> None:
 
         await set_session(str(call_id), {"status": "active", "caller": payload.caller_number})
 
-        # Placeholder: in production, connect Telnyx media streams and Deepgram STT.
-        if vad.detect_start():
-            user_text = "Hello, I need help with pricing."
-            await _process_turn(session, call, user_text, metadata={"sentiment": 0.1})
+        settings = get_settings()
+        try:
+            if payload.call_control_id and settings.public_base_url:
+                stream_url = f"{settings.public_base_url}/api/v1/media/telnyx?call_id={call_id}"
+                start_media_stream(payload.call_control_id, stream_url)
 
-        call.ended_at = datetime.utcnow()
-        call.duration_seconds = int((call.ended_at - call.started_at).total_seconds())
-        await session.commit()
+            # Live loop: wait for STT final transcripts (driven by Telnyx media stream).
+            if stt.enabled:
+                for _ in range(50):
+                    result = await stt.get_next_final(timeout=25)
+                    if not result:
+                        break
+                    user_text, metadata = result
+                    if tts.is_active():
+                        tts.flush_stream()
+                    if vad.detect_start():
+                        await _process_turn(session, call, user_text, metadata=metadata)
+            else:
+                logger.warning("stt_not_enabled", call_id=str(call_id))
 
-        await _post_call_summarize(session, call)
+            call.ended_at = datetime.utcnow()
+            call.duration_seconds = int((call.ended_at - call.started_at).total_seconds())
+            await session.commit()
+
+            await _post_call_summarize(session, call)
+        finally:
+            await stt.close()
+            unregister_call(str(call_id))
+            if payload.call_control_id:
+                stop_media_stream(payload.call_control_id)
 
 
 def _personalize_greeting(profile: CustomerProfile | None) -> str:
@@ -92,6 +118,15 @@ async def _process_turn(session, call: Call, user_text: str, metadata: dict) -> 
         call.status = CallStatus.escalated
         await session.commit()
         await notify_escalation(str(call.business_id), {"call_id": str(call.id), "reason": reason, "score": score})
+        result = await session.execute(select(User).where(User.business_id == call.business_id))
+        for user in result.scalars().all():
+            notify_user_channels(
+                user.email,
+                user.phone,
+                user.push_token,
+                "Call escalation",
+                f"Call {call.id} escalated: {reason}",
+            )
 
 
 def _route_model(user_text: str) -> str:

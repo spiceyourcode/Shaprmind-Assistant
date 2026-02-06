@@ -30,6 +30,15 @@ async def notify_escalation(business_id: str, payload: dict) -> None:
     await emit_escalation(business_id, payload)
 
 
+def notify_user_channels(email: str | None, phone: str | None, push_token: str | None, title: str, body: str) -> None:
+    if push_token:
+        send_fcm(push_token, title, body)
+    if phone:
+        send_sms(phone, body)
+    if email:
+        send_email(email, title, body)
+
+
 def send_fcm(push_token: str, title: str, body: str) -> None:
     _init_fcm()
     if not push_token or not _fcm_initialized:

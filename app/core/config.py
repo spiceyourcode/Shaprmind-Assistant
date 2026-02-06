@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     openai_api_key: str
     deepgram_api_key: str
     elevenlabs_api_key: str
+    elevenlabs_voice_id: str | None = None
     telnyx_api_key: str
 
     twilio_sid: str | None = None
@@ -34,6 +35,7 @@ class Settings(BaseSettings):
 
     call_audio_ttl_days: int = 30
     rate_limit_per_minute: int = 120
+    public_base_url: str | None = None
 
     class Config:
         env_prefix = ""
