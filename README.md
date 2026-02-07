@@ -22,6 +22,7 @@ FastAPI backend for an AI-powered call representative. Integrates Telnyx, Deepgr
 - Telnyx media streaming expects a public `PUBLIC_BASE_URL` and uses `/api/v1/media/telnyx`.
 - Ensure ElevenLabs audio format is compatible with Telnyx media (transcode if needed).
 - Telnyx webhook requests are verified using `TELNYX_WEBHOOK_SECRET` (Ed25519).
+- Audio retention cleanup can be run via `python -m app.scripts.cleanup_runner`.
 
 ## Deployment
 
