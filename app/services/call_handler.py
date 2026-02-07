@@ -15,9 +15,9 @@ from app.services.notifications import notify_escalation, notify_user_channels, 
 from app.services.model_router import choose_model
 from app.services.openai_client import get_openai_client
 from app.services.rag import rag_query
-from app.services.session_state import set_session
+from app.services.session_state import get_session, set_session
 from app.services.stt import create_stt_stream
-from app.services.telephony import start_media_stream, stop_media_stream
+from app.services.telephony import start_media_stream, stop_media_stream, transfer_call_to_human
 from app.services.tts import create_tts_stream
 from app.services.vad import SileroVAD
 
@@ -72,6 +72,16 @@ async def handle_inbound_call(payload: InboundCallWebhook) -> None:
                 interim_text = ""
                 prefetched: list[str] = []
                 for _ in range(200):
+                    session_state = await get_session(str(call_id))
+                    if session_state.get("takeover_requested") and payload.call_control_id:
+                        phone = session_state.get("takeover_phone")
+                        user_id = session_state.get("takeover_user_id")
+                        if phone:
+                            transfer_call_to_human(payload.call_control_id, phone)
+                            call.status = CallStatus.transferred
+                            call.escalated_to_user_id = user_id
+                            await session.commit()
+                            break
                     event = await stt.get_next_event(timeout=25)
                     if not event:
                         break

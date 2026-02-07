@@ -72,3 +72,10 @@ async def set_session(call_id: str, state: dict[str, Any], ttl_seconds: int = 36
     else:
         redis = get_redis()
         await redis.set(f"call:{call_id}", payload, ex=ttl_seconds)
+
+
+async def update_session(call_id: str, updates: dict[str, Any], ttl_seconds: int = 3600) -> dict[str, Any]:
+    state = await get_session(call_id)
+    state.update(updates)
+    await set_session(call_id, state, ttl_seconds=ttl_seconds)
+    return state
