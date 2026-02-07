@@ -25,6 +25,7 @@ FastAPI backend for an AI-powered call representative. Integrates Telnyx, Deepgr
 - Audio retention cleanup can be run via `python -m app.scripts.cleanup_runner`.
 - Redis session cleanup can be run via `python -m app.scripts.session_cleanup_runner`.
 - Optional: set `FFMPEG_PATH` to enable TTS audio transcoding for Telnyx compatibility.
+- Run tests with `pytest`.
 
 ## Deployment
 
