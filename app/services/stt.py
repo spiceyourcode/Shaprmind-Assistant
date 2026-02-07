@@ -24,14 +24,14 @@ class STTStream:
     async def close(self) -> None:
         return
 
-    async def get_next_event(self, timeout: float = 20.0) -> tuple[bool, str, dict[str, Any]] | None:
+    async def get_next_event(self, timeout: float = 20.0) -> dict[str, Any] | None:
         return None
 
 
 class DeepgramSTTStream(STTStream):
     def __init__(self, audio_queue: asyncio.Queue[bytes]) -> None:
         self._audio_queue = audio_queue
-        self._transcript_queue: asyncio.Queue[tuple[bool, str, dict[str, Any]]] = asyncio.Queue()
+        self._transcript_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self._dg_connection = None
         settings = get_settings()
         self.enabled = bool(settings.deepgram_api_key and HAS_DEEPGRAM)
@@ -51,6 +51,8 @@ class DeepgramSTTStream(STTStream):
             vad_events=True,
         )
         self._dg_connection.on(LiveTranscriptionEvents.Transcript, self._on_transcript)
+        self._dg_connection.on(LiveTranscriptionEvents.SpeechStarted, self._on_speech_start)
+        self._dg_connection.on(LiveTranscriptionEvents.UtteranceEnd, self._on_speech_end)
         await self._dg_connection.start(options)
         asyncio.create_task(self._send_audio())
 
@@ -75,13 +77,21 @@ class DeepgramSTTStream(STTStream):
         except Exception:  # noqa: BLE001
             return
         is_final = bool(getattr(result, "is_final", False))
-        await self._transcript_queue.put((is_final, text, metadata))
+        await self._transcript_queue.put(
+            {"type": "transcript", "is_final": is_final, "text": text, "metadata": metadata}
+        )
+
+    async def _on_speech_start(self, *_args) -> None:
+        await self._transcript_queue.put({"type": "vad_start"})
+
+    async def _on_speech_end(self, *_args) -> None:
+        await self._transcript_queue.put({"type": "vad_end"})
 
     async def close(self) -> None:
         if self._dg_connection:
             await self._dg_connection.finish()
 
-    async def get_next_event(self, timeout: float = 20.0) -> tuple[bool, str, dict[str, Any]] | None:
+    async def get_next_event(self, timeout: float = 20.0) -> dict[str, Any] | None:
         if not self.enabled:
             return None
         try:

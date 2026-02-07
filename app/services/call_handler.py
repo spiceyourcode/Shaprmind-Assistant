@@ -19,7 +19,6 @@ from app.services.session_state import get_session, set_session
 from app.services.stt import create_stt_stream
 from app.services.telephony import start_media_stream, stop_media_stream, transfer_call_to_human
 from app.services.tts import create_tts_stream
-from app.services.vad import SileroVAD
 
 
 logger = get_logger()
@@ -28,7 +27,6 @@ logger = get_logger()
 async def handle_inbound_call(payload: InboundCallWebhook) -> None:
     async with AsyncSessionLocal() as session:
         call_id = uuid.uuid4()
-        vad = SileroVAD()
         channels = register_call(str(call_id))
         stt = await create_stt_stream(channels.inbound_audio)
         tts = await create_tts_stream(lambda chunk: push_tts_audio(str(call_id), chunk))
@@ -71,6 +69,7 @@ async def handle_inbound_call(payload: InboundCallWebhook) -> None:
             if stt.enabled:
                 interim_text = ""
                 prefetched: list[str] = []
+                is_speaking = False
                 for _ in range(200):
                     session_state = await get_session(str(call_id))
                     if session_state.get("takeover_requested") and payload.call_control_id:
@@ -85,7 +84,20 @@ async def handle_inbound_call(payload: InboundCallWebhook) -> None:
                     event = await stt.get_next_event(timeout=25)
                     if not event:
                         break
-                    is_final, text, metadata = event
+                    event_type = event.get("type")
+                    if event_type == "vad_start":
+                        is_speaking = True
+                        if tts.is_active():
+                            tts.flush_stream()
+                        continue
+                    if event_type == "vad_end":
+                        is_speaking = False
+                        continue
+                    if event_type != "transcript":
+                        continue
+                    is_final = event.get("is_final", False)
+                    text = event.get("text", "")
+                    metadata = event.get("metadata", {})
                     if not is_final:
                         interim_text = text
                         if tts.is_active() and interim_text:
@@ -98,7 +110,7 @@ async def handle_inbound_call(payload: InboundCallWebhook) -> None:
                         continue
                     if tts.is_active():
                         tts.flush_stream()
-                    if vad.detect_start():
+                    if is_speaking or user_text:
                         await _process_turn(session, call, user_text, metadata=metadata, prefetched=prefetched)
                     interim_text = ""
                     prefetched = []
