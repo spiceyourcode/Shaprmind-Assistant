@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     elevenlabs_voice_id: str | None = None
     telnyx_api_key: str
     telnyx_webhook_secret: str | None = None
+    telnyx_audio_format: str = "mulaw"
+    telnyx_sample_rate: int = 8000
+    ffmpeg_path: str | None = None
 
     twilio_sid: str | None = None
     twilio_token: str | None = None

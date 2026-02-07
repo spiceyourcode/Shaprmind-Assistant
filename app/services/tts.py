@@ -5,6 +5,7 @@ import httpx
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.services.audio_transcoder import transcode_to_telnyx
 
 
 logger = get_logger()
@@ -31,12 +32,18 @@ class TTSStream:
                     "accept": "audio/mpeg",
                 }
                 payload = {"text": text, "model_id": "eleven_turbo_v2"}
+                audio_buffer = bytearray()
                 async with httpx.AsyncClient(timeout=30) as client:
                     async with client.stream("POST", url, headers=headers, json=payload) as response:
                         response.raise_for_status()
                         async for chunk in response.aiter_bytes():
-                            if self._audio_sink:
-                                await self._audio_sink(chunk)
+                            audio_buffer.extend(chunk)
+                if self._audio_sink:
+                    audio_bytes = bytes(audio_buffer)
+                    audio_bytes = await transcode_to_telnyx(audio_bytes)
+                    chunk_size = 8000
+                    for i in range(0, len(audio_bytes), chunk_size):
+                        await self._audio_sink(audio_bytes[i : i + chunk_size])
             finally:
                 self._active = False
 
