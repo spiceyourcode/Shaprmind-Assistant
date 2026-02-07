@@ -12,6 +12,7 @@ from app.services.action_points import extract_action_points
 from app.services.escalation import detect_sensitive
 from app.services.media_bridge import push_tts_audio, register_call, unregister_call
 from app.services.notifications import notify_escalation, notify_user_channels, trigger_action_point
+from app.services.model_router import choose_model
 from app.services.openai_client import get_openai_client
 from app.services.rag import rag_query
 from app.services.session_state import set_session
@@ -120,7 +121,7 @@ async def _process_turn(
     prefetched: list[str] | None = None,
 ) -> None:
     rag_snippets = prefetched or await rag_query(session, str(call.business_id), user_text)
-    model = _route_model(user_text)
+    model = await choose_model(user_text)
     response = await _generate_response(model, user_text, rag_snippets)
 
     session.add(
@@ -148,12 +149,6 @@ async def _process_turn(
                 "Call escalation",
                 f"Call {call.id} escalated: {reason}",
             )
-
-
-def _route_model(user_text: str) -> str:
-    if len(user_text) > 200:
-        return "gpt-4o"
-    return "gpt-4o-mini"
 
 
 async def _generate_response(model: str, user_text: str, rag_snippets: list[str]) -> str:

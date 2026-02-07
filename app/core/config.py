@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     upstash_redis_rest_token: str | None = None
 
     openai_api_key: str
+    openai_primary_model: str = "gpt-4o-mini"
+    openai_complex_model: str = "gpt-4o"
     deepgram_api_key: str
     elevenlabs_api_key: str
     elevenlabs_voice_id: str | None = None
