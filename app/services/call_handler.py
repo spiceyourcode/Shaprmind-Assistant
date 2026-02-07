@@ -8,9 +8,10 @@ from app.core.logging import get_logger
 from app.db.models import Call, CallMessage, CallStatus, CustomerProfile, MessageSender, User
 from app.db.session import AsyncSessionLocal
 from app.schemas.calls import InboundCallWebhook
+from app.services.action_points import extract_action_points
 from app.services.escalation import detect_sensitive
 from app.services.media_bridge import push_tts_audio, register_call, unregister_call
-from app.services.notifications import notify_escalation, notify_user_channels
+from app.services.notifications import notify_escalation, notify_user_channels, trigger_action_point
 from app.services.openai_client import get_openai_client
 from app.services.rag import rag_query
 from app.services.session_state import set_session
@@ -172,5 +173,9 @@ async def _post_call_summarize(session, call: Call) -> None:
         input=f"Summarize the call and list action points as JSON.\n\nTranscript:\n{transcript}",
     )
     call.summary = summary.output_text
-    call.action_points = {"raw": summary.output_text}
+    action_points = await extract_action_points(summary.output_text)
+    call.action_points = {"items": action_points}
     await session.commit()
+
+    for item in action_points:
+        await trigger_action_point(item.get("type", ""), item.get("details", {}))

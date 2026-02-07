@@ -5,6 +5,7 @@ from firebase_admin import credentials, messaging
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from twilio.rest import Client as TwilioClient
+import httpx
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -68,3 +69,12 @@ def send_email(to_email: str, subject: str, body: str) -> None:
 
 async def trigger_action_point(action_type: str, details: dict[str, Any]) -> None:
     logger.info("action_point_triggered", action_type=action_type, details=details)
+    if action_type == "sms":
+        send_sms(details.get("to"), details.get("body", ""))
+    elif action_type == "email":
+        send_email(details.get("to"), details.get("subject", "Notification"), details.get("body", ""))
+    elif action_type == "webhook":
+        url = details.get("url")
+        if url:
+            async with httpx.AsyncClient(timeout=10) as client:
+                await client.post(url, json=details.get("payload", {}))
