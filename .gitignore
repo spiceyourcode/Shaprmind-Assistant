@@ -91,3 +91,6 @@ alembic/versions/*.pyc
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Firebase credentials
+sharpmind-538c9-firebase-adminsdk-fbsvc-6b6d1becad.json

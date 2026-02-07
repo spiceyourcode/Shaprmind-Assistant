@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     database_url: str
     supabase_url: str | None = None
     supabase_key: str | None = None
+    supabase_publishable_key: str | None = None
+    supabase_anon_key: str | None = None
 
     redis_url: str = "redis://localhost:6379/0"
 
@@ -38,6 +40,7 @@ class Settings(BaseSettings):
     public_base_url: str | None = None
 
     class Config:
+        env_file = ".env"
         env_prefix = ""
         case_sensitive = False
 
