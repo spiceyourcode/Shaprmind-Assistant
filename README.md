@@ -21,6 +21,7 @@ FastAPI backend for an AI-powered call representative. Integrates Telnyx, Deepgr
 - S3 is used for audio/transcript storage and signed URLs.
 - Telnyx media streaming expects a public `PUBLIC_BASE_URL` and uses `/api/v1/media/telnyx`.
 - Ensure ElevenLabs audio format is compatible with Telnyx media (transcode if needed).
+- Telnyx webhook requests are verified using `TELNYX_WEBHOOK_SECRET` (Ed25519).
 
 ## Deployment
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +15,7 @@ from app.schemas.calls import (
     InboundCallWebhook,
 )
 from app.services.call_handler import handle_inbound_call
+from app.services.webhook_security import verify_telnyx_signature
 from app.services.storage import generate_audio_signed_url
 
 
@@ -98,8 +99,15 @@ async def add_call_message(
 
 @router.post("/calls/inbound", response_model=dict)
 async def inbound_call(
-    payload: InboundCallWebhook,
+    request: Request,
     background: BackgroundTasks,
 ) -> dict:
+    raw_body = await request.body()
+    if not verify_telnyx_signature(raw_body, request.headers):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Telnyx signature")
+    try:
+        payload = InboundCallWebhook.model_validate_json(raw_body)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid payload") from exc
     background.add_task(handle_inbound_call, payload)
     return {"status": "accepted"}

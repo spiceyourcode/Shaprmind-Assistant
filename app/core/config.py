@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     elevenlabs_api_key: str
     elevenlabs_voice_id: str | None = None
     telnyx_api_key: str
+    telnyx_webhook_secret: str | None = None
 
     twilio_sid: str | None = None
     twilio_token: str | None = None
