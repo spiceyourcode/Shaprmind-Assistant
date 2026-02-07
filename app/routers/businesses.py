@@ -6,7 +6,7 @@ from app.deps import get_current_user, require_owner, require_same_business
 from app.db.models import Business, KnowledgeBase, User
 from app.db.session import get_session
 from app.schemas.businesses import BusinessCreate, BusinessResponse, KnowledgeBaseUpload
-from app.services.knowledge_base import embed_text
+from app.services.knowledge_base import chunk_text, embed_many
 
 
 router = APIRouter()
@@ -56,13 +56,17 @@ async def upload_knowledge(
 ) -> dict:
     require_owner(current_user)
     require_same_business(current_user, business_id)
-    embedding = await embed_text(payload.content)
-    kb = KnowledgeBase(
-        business_id=business_id,
-        category=payload.category,
-        content=payload.content,
-        embedding=embedding,
-    )
-    session.add(kb)
+    chunk_size = payload.chunk_size or 800
+    chunks = chunk_text(payload.content, chunk_size=chunk_size)
+    embeddings = await embed_many(chunks)
+    for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+        kb = KnowledgeBase(
+            business_id=business_id,
+            category=payload.category,
+            content=chunk,
+            chunk_index=idx,
+            embedding=embedding,
+        )
+        session.add(kb)
     await session.commit()
-    return {"status": "ok"}
+    return {"status": "ok", "chunks": len(chunks)}

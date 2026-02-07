@@ -20,3 +20,4 @@ class BusinessResponse(APIModel):
 class KnowledgeBaseUpload(BaseModel):
     category: str
     content: str
+    chunk_size: int | None = None

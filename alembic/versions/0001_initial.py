@@ -48,11 +48,13 @@ def upgrade() -> None:
         sa.Column("business_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("category", sa.String(length=255), nullable=False),
         sa.Column("content", sa.Text(), nullable=False),
+        sa.Column("chunk_index", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("embedding", Vector(1536)),
         sa.Column("updated_at", sa.DateTime(timezone=True)),
         sa.ForeignKeyConstraint(["business_id"], ["businesses.id"]),
     )
     op.create_index("ix_kb_business_id", "knowledge_bases", ["business_id"])
+    op.create_index("ix_kb_business_category", "knowledge_bases", ["business_id", "category"])
 
     op.create_table(
         "escalation_rules",
