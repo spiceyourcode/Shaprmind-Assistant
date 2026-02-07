@@ -11,6 +11,8 @@ import httpx
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.realtime.socket import emit_escalation
+from app.services.action_delivery import create_delivery, update_delivery
+from app.db.models import ActionDeliveryStatus
 from app.services.webhook_signing import build_webhook_headers
 
 
@@ -69,26 +71,40 @@ def send_email(to_email: str, subject: str, body: str) -> None:
     SendGridAPIClient(settings.sendgrid_api_key).send(message)
 
 
-async def trigger_action_point(action_type: str, details: dict[str, Any]) -> None:
+async def trigger_action_point(action_type: str, details: dict[str, Any], call_id: str | None = None) -> None:
     logger.info("action_point_triggered", action_type=action_type, details=details)
+    target = details.get("to") or details.get("url")
+    delivery = await create_delivery(call_id, action_type, target)
+    attempts = 0
     if action_type == "sms":
+        attempts = 1
         send_sms(details.get("to"), details.get("body", ""))
+        await update_delivery(delivery.id, ActionDeliveryStatus.success, attempts, None)
     elif action_type == "email":
+        attempts = 1
         send_email(details.get("to"), details.get("subject", "Notification"), details.get("body", ""))
+        await update_delivery(delivery.id, ActionDeliveryStatus.success, attempts, None)
     elif action_type == "webhook":
         url = details.get("url")
         if url:
             async with httpx.AsyncClient(timeout=10) as client:
                 payload = details.get("payload", {})
                 headers = build_webhook_headers(payload)
-                await _post_with_retries(client, url, payload, headers)
+                attempts, last_error = await _post_with_retries(client, url, payload, headers)
+                status = ActionDeliveryStatus.success if not last_error else ActionDeliveryStatus.failed
+                await update_delivery(delivery.id, status, attempts, last_error)
+    else:
+        await update_delivery(delivery.id, ActionDeliveryStatus.failed, attempts, "Unknown action type")
 
 
-async def _post_with_retries(client: httpx.AsyncClient, url: str, payload: dict, headers: dict) -> None:
+async def _post_with_retries(client: httpx.AsyncClient, url: str, payload: dict, headers: dict) -> tuple[int, str | None]:
     delays = [0, 2, 5]
+    attempts = 0
     for delay in delays:
         if delay:
             await asyncio.sleep(delay)
         response = await client.post(url, json=payload, headers=headers)
+        attempts += 1
         if 200 <= response.status_code < 300:
-            return
+            return attempts, None
+    return attempts, f"HTTP {response.status_code}"

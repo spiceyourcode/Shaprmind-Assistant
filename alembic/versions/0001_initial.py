@@ -111,6 +111,20 @@ def upgrade() -> None:
     op.create_index("ix_call_messages_call_id", "call_messages", ["call_id"])
 
     op.create_table(
+        "action_deliveries",
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("call_id", postgresql.UUID(as_uuid=True), nullable=True),
+        sa.Column("action_type", sa.String(length=50), nullable=False),
+        sa.Column("target", sa.String(length=255)),
+        sa.Column("status", sa.String(length=20), nullable=False),
+        sa.Column("attempts", sa.Integer(), nullable=False),
+        sa.Column("last_error", sa.String(length=512)),
+        sa.Column("created_at", sa.DateTime(timezone=True)),
+        sa.Column("updated_at", sa.DateTime(timezone=True)),
+        sa.ForeignKeyConstraint(["call_id"], ["calls.id"]),
+    )
+
+    op.create_table(
         "customer_profiles",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column("business_id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -129,6 +143,8 @@ def downgrade() -> None:
     op.drop_index("ix_customer_profiles_caller_number", table_name="customer_profiles")
     op.drop_index("ix_customer_profiles_business_id", table_name="customer_profiles")
     op.drop_table("customer_profiles")
+
+    op.drop_table("action_deliveries")
 
     op.drop_index("ix_call_messages_call_id", table_name="call_messages")
     op.drop_table("call_messages")

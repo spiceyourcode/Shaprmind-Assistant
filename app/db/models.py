@@ -142,6 +142,26 @@ class CallMessage(Base):
     call: Mapped["Call"] = relationship(back_populates="messages")
 
 
+class ActionDeliveryStatus(str, enum.Enum):
+    pending = "pending"
+    success = "success"
+    failed = "failed"
+
+
+class ActionDelivery(Base):
+    __tablename__ = "action_deliveries"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    call_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("calls.id"))
+    action_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    target: Mapped[str | None] = mapped_column(String(255))
+    status: Mapped[ActionDeliveryStatus] = mapped_column(Enum(ActionDeliveryStatus), default=ActionDeliveryStatus.pending)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str | None] = mapped_column(String(512))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
 class CustomerProfile(Base):
     __tablename__ = "customer_profiles"
     __table_args__ = (

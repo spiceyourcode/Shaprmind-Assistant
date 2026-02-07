@@ -12,6 +12,7 @@ from app.services.action_points import extract_action_points
 from app.services.escalation import detect_sensitive
 from app.services.media_bridge import push_tts_audio, register_call, unregister_call
 from app.services.notifications import notify_escalation, notify_user_channels, trigger_action_point
+from app.services.observability import record_call_event
 from app.services.model_router import choose_model
 from app.services.openai_client import get_openai_client
 from app.services.rag import rag_query
@@ -26,6 +27,7 @@ logger = get_logger()
 
 async def handle_inbound_call(payload: InboundCallWebhook) -> None:
     async with AsyncSessionLocal() as session:
+        start_time = datetime.utcnow()
         call_id = uuid.uuid4()
         channels = register_call(str(call_id))
         stt = await create_stt_stream(channels.inbound_audio)
@@ -122,6 +124,12 @@ async def handle_inbound_call(payload: InboundCallWebhook) -> None:
             await session.commit()
 
             await _post_call_summarize(session, call)
+            await record_call_event(
+                session,
+                str(call.id),
+                "call_completed",
+                {"duration_seconds": call.duration_seconds, "started_at": call.started_at.isoformat()},
+            )
         finally:
             await stt.close()
             unregister_call(str(call_id))
@@ -167,6 +175,12 @@ async def _process_turn(
         if staff:
             call.escalated_to_user_id = staff.id
         await session.commit()
+        await record_call_event(
+            session,
+            str(call.id),
+            "escalation_detected",
+            {"reason": reason, "score": score},
+        )
         await notify_escalation(str(call.business_id), {"call_id": str(call.id), "reason": reason, "score": score})
         result = await session.execute(select(User).where(User.business_id == call.business_id))
         for user in result.scalars().all():
@@ -201,4 +215,10 @@ async def _post_call_summarize(session, call: Call) -> None:
     await session.commit()
 
     for item in action_points:
-        await trigger_action_point(item.get("type", ""), item.get("details", {}))
+        await trigger_action_point(item.get("type", ""), item.get("details", {}), call_id=str(call.id))
+        await record_call_event(
+            session,
+            str(call.id),
+            "action_point_triggered",
+            {"type": item.get("type"), "details": item.get("details", {})},
+        )
