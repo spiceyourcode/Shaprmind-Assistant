@@ -24,14 +24,14 @@ class STTStream:
     async def close(self) -> None:
         return
 
-    async def get_next_final(self, timeout: float = 20.0) -> tuple[str, dict[str, Any]] | None:
+    async def get_next_event(self, timeout: float = 20.0) -> tuple[bool, str, dict[str, Any]] | None:
         return None
 
 
 class DeepgramSTTStream(STTStream):
     def __init__(self, audio_queue: asyncio.Queue[bytes]) -> None:
         self._audio_queue = audio_queue
-        self._transcript_queue: asyncio.Queue[tuple[str, dict[str, Any]]] = asyncio.Queue()
+        self._transcript_queue: asyncio.Queue[tuple[bool, str, dict[str, Any]]] = asyncio.Queue()
         self._dg_connection = None
         settings = get_settings()
         self.enabled = bool(settings.deepgram_api_key and HAS_DEEPGRAM)
@@ -74,13 +74,14 @@ class DeepgramSTTStream(STTStream):
             }
         except Exception:  # noqa: BLE001
             return
-        await self._transcript_queue.put((text, metadata))
+        is_final = bool(getattr(result, "is_final", False))
+        await self._transcript_queue.put((is_final, text, metadata))
 
     async def close(self) -> None:
         if self._dg_connection:
             await self._dg_connection.finish()
 
-    async def get_next_final(self, timeout: float = 20.0) -> tuple[str, dict[str, Any]] | None:
+    async def get_next_event(self, timeout: float = 20.0) -> tuple[bool, str, dict[str, Any]] | None:
         if not self.enabled:
             return None
         try:

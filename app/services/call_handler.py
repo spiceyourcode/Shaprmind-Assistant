@@ -67,15 +67,29 @@ async def handle_inbound_call(payload: InboundCallWebhook) -> None:
 
             # Live loop: wait for STT final transcripts (driven by Telnyx media stream).
             if stt.enabled:
-                for _ in range(50):
-                    result = await stt.get_next_final(timeout=25)
-                    if not result:
+                interim_text = ""
+                prefetched: list[str] = []
+                for _ in range(200):
+                    event = await stt.get_next_event(timeout=25)
+                    if not event:
                         break
-                    user_text, metadata = result
+                    is_final, text, metadata = event
+                    if not is_final:
+                        interim_text = text
+                        if tts.is_active() and interim_text:
+                            tts.flush_stream()
+                        if len(interim_text) > 50 and not prefetched:
+                            prefetched = await rag_query(session, str(call.business_id), interim_text)
+                        continue
+                    user_text = text or interim_text
+                    if not user_text:
+                        continue
                     if tts.is_active():
                         tts.flush_stream()
                     if vad.detect_start():
-                        await _process_turn(session, call, user_text, metadata=metadata)
+                        await _process_turn(session, call, user_text, metadata=metadata, prefetched=prefetched)
+                    interim_text = ""
+                    prefetched = []
             else:
                 logger.warning("stt_not_enabled", call_id=str(call_id))
 
@@ -97,8 +111,14 @@ def _personalize_greeting(profile: CustomerProfile | None) -> str:
     return "Hi there! Thanks for calling. How can I help you today?"
 
 
-async def _process_turn(session, call: Call, user_text: str, metadata: dict) -> None:
-    rag_snippets = await rag_query(session, str(call.business_id), user_text)
+async def _process_turn(
+    session,
+    call: Call,
+    user_text: str,
+    metadata: dict,
+    prefetched: list[str] | None = None,
+) -> None:
+    rag_snippets = prefetched or await rag_query(session, str(call.business_id), user_text)
     model = _route_model(user_text)
     response = await _generate_response(model, user_text, rag_snippets)
 
