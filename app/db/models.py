@@ -52,7 +52,7 @@ class User(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    role: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False)
+    role: Mapped[UserRole] = mapped_column(Enum(UserRole, native_enum=False), nullable=False)
     business_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("businesses.id"))
     phone: Mapped[str | None] = mapped_column(String(32))
     push_token: Mapped[str | None] = mapped_column(String(512))
@@ -81,7 +81,7 @@ class EscalationRule(Base):
     business_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("businesses.id"))
     keyword_or_phrase: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    action: Mapped[EscalationAction] = mapped_column(Enum(EscalationAction), nullable=False)
+    action: Mapped[EscalationAction] = mapped_column(Enum(EscalationAction, native_enum=False), nullable=False)
     notify_user_ids: Mapped[list[uuid.UUID] | None] = mapped_column(ARRAY(UUID(as_uuid=True)))
 
 
@@ -99,7 +99,9 @@ class Call(Base):
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     duration_seconds: Mapped[int | None] = mapped_column(Integer)
-    status: Mapped[CallStatus] = mapped_column(Enum(CallStatus), default=CallStatus.completed)
+    status: Mapped[CallStatus] = mapped_column(
+        Enum(CallStatus, native_enum=False), default=CallStatus.completed
+    )
     transcript: Mapped[str | None] = mapped_column(Text)
     summary: Mapped[str | None] = mapped_column(Text)
     action_points: Mapped[dict | None] = mapped_column(JSONB)
@@ -128,7 +130,7 @@ class CallMessage(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     call_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("calls.id"))
-    sender: Mapped[MessageSender] = mapped_column(Enum(MessageSender), nullable=False)
+    sender: Mapped[MessageSender] = mapped_column(Enum(MessageSender, native_enum=False), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     sentiment_score: Mapped[float | None] = mapped_column(Float)

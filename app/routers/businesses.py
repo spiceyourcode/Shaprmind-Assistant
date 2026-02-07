@@ -27,6 +27,9 @@ async def create_business(
     session.add(business)
     await session.commit()
     await session.refresh(business)
+    if current_user.business_id is None:
+        current_user.business_id = business.id
+        await session.commit()
     return BusinessResponse.model_validate(business)
 
 

@@ -29,6 +29,8 @@ async def register(
     current_user: User | None = Depends(get_optional_user),
 ) -> TokenResponse:
     if payload.role == UserRole.staff:
+        if payload.business_id is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Business ID required")
         if not current_user:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Owner token required")
         require_owner(current_user)

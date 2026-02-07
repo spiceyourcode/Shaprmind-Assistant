@@ -1,0 +1,389 @@
+{
+  "info": {
+    "name": "Sharp Mind AI Rep API",
+    "description": "Postman collection for Sharp Mind AI Rep endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000" },
+    { "key": "wsBaseUrl", "value": "ws://127.0.0.1:8000" },
+    { "key": "access_token", "value": "" },
+    { "key": "business_id", "value": "" },
+    { "key": "call_id", "value": "" },
+    { "key": "profile_id", "value": "" },
+    { "key": "rule_id", "value": "" },
+    { "key": "caller_number", "value": "+15555550123" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.access_token) {",
+                  "    pm.environment.set('access_token', json.access_token);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"owner@example.com\",\n  \"password\": \"ChangeMe123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"owner@example.com\",\n  \"password\": \"ChangeMe123!\",\n  \"role\": \"owner\",\n  \"business_id\": null,\n  \"phone\": \"+15555550123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Businesses",
+      "item": [
+        {
+          "name": "Create Business",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sharp Mind Demo\",\n  \"phone_number\": \"+15555550123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses"]
+            }
+          }
+        },
+        {
+          "name": "Get Business",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{business_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "{{business_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Upload Knowledge",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"faq\",\n  \"content\": \"Store hours are 9am to 6pm.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{business_id}}/knowledge",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "{{business_id}}", "knowledge"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Escalation Rules",
+      "item": [
+        {
+          "name": "Create Rule",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"keywords\": [\"refund\", \"manager\"],\n  \"priority\": 1,\n  \"action\": \"notify_owner\",\n  \"notify_user_ids\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{business_id}}/escalation-rules",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "{{business_id}}", "escalation-rules"]
+            }
+          }
+        },
+        {
+          "name": "List Rules",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{business_id}}/escalation-rules",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "{{business_id}}", "escalation-rules"]
+            }
+          }
+        },
+        {
+          "name": "Update Rule",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"keywords\": [\"refund\", \"chargeback\"],\n  \"priority\": 2,\n  \"action\": \"notify_staff\",\n  \"notify_user_ids\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{business_id}}/escalation-rules/{{rule_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "businesses",
+                "{{business_id}}",
+                "escalation-rules",
+                "{{rule_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Rule",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{business_id}}/escalation-rules/{{rule_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "v1",
+                "businesses",
+                "{{business_id}}",
+                "escalation-rules",
+                "{{rule_id}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Calls",
+      "item": [
+        {
+          "name": "List Calls",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calls?business_id={{business_id}}&limit=20&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "calls"],
+              "query": [
+                { "key": "business_id", "value": "{{business_id}}" },
+                { "key": "limit", "value": "20" },
+                { "key": "offset", "value": "0" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Call",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calls/{{call_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "calls", "{{call_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Get Call Audio",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calls/{{call_id}}/audio",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "calls", "{{call_id}}", "audio"]
+            }
+          }
+        },
+        {
+          "name": "Add Call Message",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sender\": \"customer\",\n  \"content\": \"Can I get a refund?\",\n  \"sentiment\": 0.1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calls/{{call_id}}/messages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "calls", "{{call_id}}", "messages"]
+            }
+          }
+        },
+        {
+          "name": "Inbound Call Webhook",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"call_control_id\": \"test-control-id\",\n  \"caller_number\": \"+15555550123\",\n  \"to_number\": \"+15555550100\",\n  \"business_id\": \"{{business_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/calls/inbound",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "calls", "inbound"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customers",
+      "item": [
+        {
+          "name": "Get Customer Profile",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers/{{caller_number}}?business_id={{business_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "customers", "{{caller_number}}"],
+              "query": [{ "key": "business_id", "value": "{{business_id}}" }]
+            }
+          }
+        },
+        {
+          "name": "Update Customer Profile",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Alex Caller\",\n  \"preferences\": {\"language\": \"en\"},\n  \"history\": {\"last_issue\": \"billing\"}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers/{{profile_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "customers", "{{profile_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Summary",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/analytics/summary?business_id={{business_id}}&period=30d",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "analytics", "summary"],
+              "query": [
+                { "key": "business_id", "value": "{{business_id}}" },
+                { "key": "period", "value": "30d" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Action Point",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"notify\",\n  \"details\": {\"message\": \"Follow up with customer\"}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/webhooks/actions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "webhooks", "actions"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Media",
+      "item": [
+        {
+          "name": "Telnyx Media WebSocket",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{wsBaseUrl}}/api/v1/media/telnyx?call_id={{call_id}}",
+              "host": ["{{wsBaseUrl}}"],
+              "path": ["api", "v1", "media", "telnyx"],
+              "query": [{ "key": "call_id", "value": "{{call_id}}" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Supabase",
+      "item": [
+        {
+          "name": "List Instruments (HTML)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/supabase",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "supabase"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

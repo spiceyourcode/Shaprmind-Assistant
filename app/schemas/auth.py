@@ -14,7 +14,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     role: UserRole
-    business_id: UUID
+    business_id: UUID | None = None
     phone: str | None = None
 
 
