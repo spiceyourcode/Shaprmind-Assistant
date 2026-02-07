@@ -5,6 +5,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import get_current_user, require_same_business
+from app.core.rate_limit import limiter
 from app.db.models import Call, CallMessage, User, UserRole
 from app.db.session import get_session
 from app.schemas.calls import (
@@ -106,6 +107,7 @@ async def add_call_message(
 
 
 @router.post("/calls/inbound", response_model=dict)
+@limiter.limit("60/minute")
 async def inbound_call(
     request: Request,
     background: BackgroundTasks,

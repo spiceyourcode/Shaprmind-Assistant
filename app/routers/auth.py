@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token, hash_password, verify_password
+from app.core.rate_limit import limiter
 from app.db.models import User, UserRole
 from app.deps import get_optional_user, require_owner, require_same_business
 from app.db.session import get_session
@@ -13,7 +14,8 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(payload: LoginRequest, session: AsyncSession = Depends(get_session)) -> TokenResponse:
+@limiter.limit("10/minute")
+async def login(request: Request, payload: LoginRequest, session: AsyncSession = Depends(get_session)) -> TokenResponse:
     result = await session.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(payload.password, user.password_hash):
@@ -23,7 +25,9 @@ async def login(payload: LoginRequest, session: AsyncSession = Depends(get_sessi
 
 
 @router.post("/register", response_model=TokenResponse)
+@limiter.limit("5/minute")
 async def register(
+    request: Request,
     payload: RegisterRequest,
     session: AsyncSession = Depends(get_session),
     current_user: User | None = Depends(get_optional_user),
