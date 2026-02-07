@@ -23,6 +23,7 @@ FastAPI backend for an AI-powered call representative. Integrates Telnyx, Deepgr
 - Ensure ElevenLabs audio format is compatible with Telnyx media (transcode if needed).
 - Telnyx webhook requests are verified using `TELNYX_WEBHOOK_SECRET` (Ed25519).
 - Audio retention cleanup can be run via `python -m app.scripts.cleanup_runner`.
+- Redis session cleanup can be run via `python -m app.scripts.session_cleanup_runner`.
 
 ## Deployment
 

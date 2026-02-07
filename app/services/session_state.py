@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote
 
@@ -66,6 +67,7 @@ async def get_session(call_id: str) -> dict[str, Any]:
 
 
 async def set_session(call_id: str, state: dict[str, Any], ttl_seconds: int = 3600) -> None:
+    state["updated_at"] = datetime.now(timezone.utc).isoformat()
     payload = json.dumps(state)
     if _use_upstash():
         await _upstash_set(f"call:{call_id}", payload, ttl_seconds)
@@ -79,3 +81,39 @@ async def update_session(call_id: str, updates: dict[str, Any], ttl_seconds: int
     state.update(updates)
     await set_session(call_id, state, ttl_seconds=ttl_seconds)
     return state
+
+
+def _is_stale(updated_at: str | None, max_age_seconds: int) -> bool:
+    if not updated_at:
+        return False
+    try:
+        parsed = datetime.fromisoformat(updated_at)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - parsed).total_seconds() > max_age_seconds
+    except Exception:
+        return False
+
+
+async def cleanup_stale_sessions(max_age_seconds: int = 3600) -> int:
+    if _use_upstash():
+        return 0
+    redis = get_redis()
+    deleted = 0
+    cursor = b"0"
+    while cursor:
+        cursor, keys = await redis.scan(cursor=cursor, match="call:*", count=200)
+        for key in keys:
+            data = await redis.get(key)
+            if not data:
+                continue
+            try:
+                payload = json.loads(data)
+            except Exception:
+                continue
+            if _is_stale(payload.get("updated_at"), max_age_seconds):
+                await redis.delete(key)
+                deleted += 1
+        if cursor == 0 or cursor == "0":
+            break
+    return deleted
