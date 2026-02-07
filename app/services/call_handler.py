@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.db.models import Call, CallMessage, CallStatus, CustomerProfile, MessageSender, User
+from app.db.models import Call, CallMessage, CallStatus, CustomerProfile, MessageSender, User, UserRole
 from app.db.session import AsyncSessionLocal
 from app.schemas.calls import InboundCallWebhook
 from app.services.action_points import extract_action_points
@@ -148,6 +148,12 @@ async def _process_turn(
     escalated, reason, score = await detect_sensitive(session, str(call.business_id), f"{user_text} {response}", metadata)
     if escalated:
         call.status = CallStatus.escalated
+        staff_result = await session.execute(
+            select(User).where(User.business_id == call.business_id, User.role == UserRole.staff)
+        )
+        staff = staff_result.scalars().first()
+        if staff:
+            call.escalated_to_user_id = staff.id
         await session.commit()
         await notify_escalation(str(call.business_id), {"call_id": str(call.id), "reason": reason, "score": score})
         result = await session.execute(select(User).where(User.business_id == call.business_id))

@@ -5,7 +5,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import get_current_user, require_same_business
-from app.db.models import Call, CallMessage, User
+from app.db.models import Call, CallMessage, User, UserRole
 from app.db.session import get_session
 from app.schemas.calls import (
     CallDetailResponse,
@@ -34,6 +34,8 @@ async def list_calls(
 ) -> list[CallListResponse]:
     require_same_business(current_user, business_id)
     filters = [Call.business_id == business_id]
+    if current_user.role == UserRole.staff:
+        filters.append(Call.escalated_to_user_id == current_user.id)
     if date_from:
         filters.append(Call.started_at >= date_from)
     if date_to:
@@ -54,6 +56,8 @@ async def get_call(
     if not call:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Call not found")
     require_same_business(current_user, call.business_id)
+    if current_user.role == UserRole.staff and call.escalated_to_user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     return CallDetailResponse.model_validate(call)
 
 
@@ -68,6 +72,8 @@ async def get_call_audio(
     if not call:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Call not found")
     require_same_business(current_user, call.business_id)
+    if current_user.role == UserRole.staff and call.escalated_to_user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     signed_url = generate_audio_signed_url(call.audio_url)
     return {"url": signed_url}
 
@@ -84,6 +90,8 @@ async def add_call_message(
     if not call:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Call not found")
     require_same_business(current_user, call.business_id)
+    if current_user.role == UserRole.staff and call.escalated_to_user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     message = CallMessage(
         call_id=call_id,
