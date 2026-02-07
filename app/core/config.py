@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     supabase_anon_key: str | None = None
 
     redis_url: str = "redis://localhost:6379/0"
+    upstash_redis_rest_url: str | None = None
+    upstash_redis_rest_token: str | None = None
 
     openai_api_key: str
     deepgram_api_key: str

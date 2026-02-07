@@ -2,32 +2,52 @@ import asyncio
 from collections.abc import AsyncIterator
 
 
-_audio_queues: dict[str, asyncio.Queue[bytes]] = {}
+class CallMediaChannels:
+    def __init__(self) -> None:
+        self.inbound_audio: asyncio.Queue[bytes] = asyncio.Queue()
+        self.outbound_audio: asyncio.Queue[bytes] = asyncio.Queue()
 
 
-def register_call(call_id: str) -> asyncio.Queue[bytes]:
-    queue = asyncio.Queue()
-    _audio_queues[call_id] = queue
-    return queue
+_channels: dict[str, CallMediaChannels] = {}
 
 
-def get_call_queue(call_id: str) -> asyncio.Queue[bytes] | None:
-    return _audio_queues.get(call_id)
+def register_call(call_id: str) -> CallMediaChannels:
+    channels = CallMediaChannels()
+    _channels[call_id] = channels
+    return channels
+
+
+def get_channels(call_id: str) -> CallMediaChannels | None:
+    return _channels.get(call_id)
 
 
 def unregister_call(call_id: str) -> None:
-    _audio_queues.pop(call_id, None)
+    _channels.pop(call_id, None)
 
 
 async def push_audio(call_id: str, data: bytes) -> None:
-    queue = _audio_queues.get(call_id)
-    if queue:
-        await queue.put(data)
+    channels = _channels.get(call_id)
+    if channels:
+        await channels.inbound_audio.put(data)
+
+
+async def push_tts_audio(call_id: str, data: bytes) -> None:
+    channels = _channels.get(call_id)
+    if channels:
+        await channels.outbound_audio.put(data)
 
 
 async def iter_audio(call_id: str) -> AsyncIterator[bytes]:
-    queue = _audio_queues.get(call_id)
-    if not queue:
+    channels = _channels.get(call_id)
+    if not channels:
         return
     while True:
-        yield await queue.get()
+        yield await channels.inbound_audio.get()
+
+
+async def iter_tts_audio(call_id: str) -> AsyncIterator[bytes]:
+    channels = _channels.get(call_id)
+    if not channels:
+        return
+    while True:
+        yield await channels.outbound_audio.get()

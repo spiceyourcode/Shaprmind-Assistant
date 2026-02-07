@@ -9,7 +9,7 @@ from app.db.models import Call, CallMessage, CallStatus, CustomerProfile, Messag
 from app.db.session import AsyncSessionLocal
 from app.schemas.calls import InboundCallWebhook
 from app.services.escalation import detect_sensitive
-from app.services.media_bridge import register_call, unregister_call
+from app.services.media_bridge import push_tts_audio, register_call, unregister_call
 from app.services.notifications import notify_escalation, notify_user_channels
 from app.services.openai_client import get_openai_client
 from app.services.rag import rag_query
@@ -27,9 +27,9 @@ async def handle_inbound_call(payload: InboundCallWebhook) -> None:
     async with AsyncSessionLocal() as session:
         call_id = uuid.uuid4()
         vad = SileroVAD()
-        audio_queue = register_call(str(call_id))
-        stt = await create_stt_stream(audio_queue)
-        tts = await create_tts_stream()
+        channels = register_call(str(call_id))
+        stt = await create_stt_stream(channels.inbound_audio)
+        tts = await create_tts_stream(lambda chunk: push_tts_audio(str(call_id), chunk))
 
         business_id = payload.business_id
         if not business_id:
