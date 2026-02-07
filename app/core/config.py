@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     sendgrid_api_key: str | None = None
     sendgrid_from_email: str | None = None
+    webhook_signing_secret: str | None = None
 
     fcm_credentials: str | None = None
 

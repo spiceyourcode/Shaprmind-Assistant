@@ -1,4 +1,5 @@
 from typing import Any
+import asyncio
 
 import firebase_admin
 from firebase_admin import credentials, messaging
@@ -10,6 +11,7 @@ import httpx
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.realtime.socket import emit_escalation
+from app.services.webhook_signing import build_webhook_headers
 
 
 logger = get_logger()
@@ -77,4 +79,16 @@ async def trigger_action_point(action_type: str, details: dict[str, Any]) -> Non
         url = details.get("url")
         if url:
             async with httpx.AsyncClient(timeout=10) as client:
-                await client.post(url, json=details.get("payload", {}))
+                payload = details.get("payload", {})
+                headers = build_webhook_headers(payload)
+                await _post_with_retries(client, url, payload, headers)
+
+
+async def _post_with_retries(client: httpx.AsyncClient, url: str, payload: dict, headers: dict) -> None:
+    delays = [0, 2, 5]
+    for delay in delays:
+        if delay:
+            await asyncio.sleep(delay)
+        response = await client.post(url, json=payload, headers=headers)
+        if 200 <= response.status_code < 300:
+            return
