@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.db.models import Call, CallMessage, CallStatus, CustomerProfile, MessageSender, User, UserRole
+from app.db.models import Business, Call, CallMessage, CallStatus, CustomerProfile, MessageSender, User, UserRole
 from app.db.session import AsyncSessionLocal
 from app.schemas.calls import InboundCallWebhook
 from app.services.action_points import extract_action_points
@@ -35,8 +35,21 @@ async def handle_inbound_call(payload: InboundCallWebhook) -> None:
 
         business_id = payload.business_id
         if not business_id:
-            logger.warning("missing_business_id", caller_number=payload.caller_number)
-            return
+            if not payload.to_number:
+                logger.warning("missing_business_id", caller_number=payload.caller_number)
+                return
+            result = await session.execute(
+                select(Business).where(Business.phone_number == payload.to_number)
+            )
+            business = result.scalar_one_or_none()
+            if not business:
+                logger.warning(
+                    "unknown_business_number",
+                    caller_number=payload.caller_number,
+                    to_number=payload.to_number,
+                )
+                return
+            business_id = business.id
 
         profile_result = await session.execute(
             select(CustomerProfile).where(
