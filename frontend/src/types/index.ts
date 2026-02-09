@@ -4,22 +4,22 @@ export interface User {
   role: 'owner' | 'staff';
   phone?: string;
   push_token?: string;
-  business_id: string;
+  business_id?: string | null;
 }
 
 export interface Business {
   id: string;
   name: string;
   phone_number: string;
-  owner_id: string;
+  owner_user_id: string;
 }
 
 export interface CallMessage {
   id: string;
-  role: 'customer' | 'ai' | 'staff';
+  sender: 'customer' | 'ai' | 'human';
   content: string;
   timestamp: string;
-  sentiment?: number;
+  sentiment_score?: number | null;
 }
 
 export interface CallEvent {
@@ -39,27 +39,26 @@ export interface ActionPoint {
 
 export interface Call {
   id: string;
+  business_id: string;
   caller_number: string;
-  caller_name?: string;
-  status: 'active' | 'completed' | 'escalated';
-  duration: number;
+  status: 'completed' | 'escalated' | 'missed' | 'transferred';
+  duration_seconds?: number | null;
   started_at: string;
   ended_at?: string;
   summary?: string;
-  sentiment_avg?: number;
   audio_url?: string;
-  messages: CallMessage[];
-  events: CallEvent[];
-  action_points: ActionPoint[];
-  escalated_to?: string;
+  action_points?: Record<string, unknown> | null;
+  escalated_to_user_id?: string | null;
+  messages?: CallMessage[];
+  events?: CallEvent[];
 }
 
 export interface EscalationRule {
   id: string;
-  keywords: string[];
+  keyword_or_phrase: string[];
   priority: number;
-  action_type: 'notify' | 'transfer' | 'escalate';
-  notify_users: string[];
+  action: 'notify_owner' | 'notify_staff' | 'takeover_prompt';
+  notify_user_ids: string[] | null;
 }
 
 export interface KnowledgeCategory {
@@ -71,19 +70,17 @@ export interface KnowledgeCategory {
 
 export interface CustomerProfile {
   id: string;
+  business_id?: string;
   caller_number: string;
-  name: string;
-  last_call?: string;
-  preferences: Record<string, unknown>;
-  call_count: number;
+  name?: string | null;
+  preferences: Record<string, unknown> | null;
+  history?: Record<string, unknown> | null;
+  updated_at?: string;
 }
 
 export interface AnalyticsSummary {
   total_calls: number;
-  avg_sentiment: number;
+  avg_duration: number;
   escalation_rate: number;
-  avg_handle_time: number;
-  call_volume: { date: string; count: number }[];
-  escalation_reasons: { reason: string; count: number }[];
-  duration_by_day: { day: string; avg_duration: number }[];
+  sentiment_avg: number | null;
 }

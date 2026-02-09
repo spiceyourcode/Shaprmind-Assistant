@@ -1,5 +1,25 @@
 # Welcome to your Lovable project
 
+## Local integration (FastAPI backend)
+
+1. Create `.env` from `.env.example`:
+```
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+VITE_SOCKET_URL=http://localhost:8000
+VITE_SOCKET_PATH=/ws/alerts/socket.io
+```
+
+2. Start the backend:
+```
+cd ../backend
+uvicorn app.main:app --reload --port 8000
+```
+
+3. Start the frontend:
+```
+npm run dev
+```
+
 ## Project info
 
 **URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID

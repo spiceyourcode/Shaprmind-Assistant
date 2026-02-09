@@ -1,22 +1,40 @@
 import { useState } from 'react';
-import { mockKnowledgeBase } from '@/lib/mockData';
 import { BookOpen, Plus, Search, ChevronDown, ChevronRight, Edit2, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { KnowledgeCategory } from '@/types';
+import { useAuthStore } from '@/stores/authStore';
+import { uploadKnowledge } from '@/api/businesses';
+import { getApiErrorMessage } from '@/api/client';
 
 export default function KnowledgeBase() {
-  const [categories, setCategories] = useState(mockKnowledgeBase);
+  const [categories, setCategories] = useState<KnowledgeCategory[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(categories[0]?.id || null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [newName, setNewName] = useState('');
+  const [newContent, setNewContent] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const businessId = useAuthStore((s) => s.user?.business_id || '');
 
   const startEdit = (cat: KnowledgeCategory) => {
     setEditingId(cat.id);
     setEditContent(cat.content);
   };
 
-  const saveEdit = (id: string) => {
+  const saveEdit = async (id: string) => {
+    const target = categories.find((c) => c.id === id);
+    if (!target || !businessId) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await uploadKnowledge(businessId, { category: target.name, content: editContent });
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
     setCategories((prev) => prev.map((c) => c.id === id ? { ...c, content: editContent, updated_at: new Date().toISOString().split('T')[0] } : c));
     setEditingId(null);
   };
@@ -25,13 +43,72 @@ export default function KnowledgeBase() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {!businessId && (
+        <div className="text-sm text-muted-foreground">
+          Link a business to upload knowledge entries.
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="page-header">Knowledge Base</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage your AI's knowledge</p>
         </div>
-        <button className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+        <button
+          onClick={() => {
+            if (!newName || !newContent) return;
+            const next: KnowledgeCategory = {
+              id: crypto.randomUUID(),
+              name: newName,
+              content: newContent,
+              updated_at: new Date().toISOString().split('T')[0],
+            };
+            setCategories((prev) => [next, ...prev]);
+            setExpandedId(next.id);
+            setNewName('');
+            setNewContent('');
+          }}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+        >
           <Plus className="w-4 h-4" /> Add Category
+        </button>
+      </div>
+      {error && (
+        <div className="text-xs text-destructive bg-destructive/10 rounded-md px-3 py-2">
+          {error}
+        </div>
+      )}
+
+      <div className="glass-card p-4 space-y-3">
+        <h3 className="text-sm font-semibold">New Knowledge Entry</h3>
+        <input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="Category name"
+          className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm"
+        />
+        <textarea
+          value={newContent}
+          onChange={(e) => setNewContent(e.target.value)}
+          placeholder="Content"
+          className="w-full h-28 px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm font-mono"
+        />
+        <button
+          onClick={async () => {
+            if (!newName || !newContent || !businessId) return;
+            setSaving(true);
+            setError(null);
+            try {
+              await uploadKnowledge(businessId, { category: newName, content: newContent });
+            } catch (err) {
+              setError(getApiErrorMessage(err));
+            } finally {
+              setSaving(false);
+            }
+          }}
+          disabled={!businessId || !newName || !newContent || saving}
+          className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : 'Save to API'}
         </button>
       </div>
 

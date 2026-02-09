@@ -1,18 +1,64 @@
-import { useState } from 'react';
-import { mockEscalationRules } from '@/lib/mockData';
+import { useMemo, useState } from 'react';
 import { ShieldAlert, Plus, Trash2, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useAuthStore } from '@/stores/authStore';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  createEscalationRule,
+  deleteEscalationRule,
+  listEscalationRules,
+} from '@/api/escalationRules';
+import { getApiErrorMessage } from '@/api/client';
 
 export default function EscalationRules() {
-  const [rules, setRules] = useState(mockEscalationRules);
+  const queryClient = useQueryClient();
+  const businessId = useAuthStore((s) => s.user?.business_id || '');
   const [showModal, setShowModal] = useState(false);
   const [testInput, setTestInput] = useState('');
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [keywords, setKeywords] = useState('');
+  const [priority, setPriority] = useState(1);
+  const [action, setAction] = useState<'notify_owner' | 'notify_staff' | 'takeover_prompt'>('notify_owner');
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const rulesQuery = useQuery({
+    queryKey: ['escalation-rules', businessId],
+    queryFn: () => listEscalationRules(businessId),
+    enabled: Boolean(businessId),
+  });
+  const rules = rulesQuery.data || [];
+
+  const createRule = useMutation({
+    mutationFn: () =>
+      createEscalationRule(businessId, {
+        keywords: keywords.split(',').map((k) => k.trim()).filter(Boolean),
+        priority,
+        action,
+        notify_user_ids: [],
+      }),
+    onSuccess: () => {
+      setShowModal(false);
+      setKeywords('');
+      setPriority(1);
+      setAction('notify_owner');
+      queryClient.invalidateQueries({ queryKey: ['escalation-rules', businessId] });
+    },
+    onError: (err) => setFormError(getApiErrorMessage(err)),
+  });
+
+  const deleteRule = useMutation({
+    mutationFn: (ruleId: string) => deleteEscalationRule(businessId, ruleId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['escalation-rules', businessId] }),
+  });
 
   const handleTest = () => {
-    const matched = rules.find((r) => r.keywords.some((k) => testInput.toLowerCase().includes(k.toLowerCase())));
-    setTestResult(matched ? `Matched rule: "${matched.keywords.join(', ')}" — Priority ${matched.priority}, Action: ${matched.action_type}` : 'No rules matched.');
+    const matched = rules.find((r) => r.keyword_or_phrase.some((k) => testInput.toLowerCase().includes(k.toLowerCase())));
+    setTestResult(
+      matched
+        ? `Matched rule: "${matched.keyword_or_phrase.join(', ')}" — Priority ${matched.priority}, Action: ${matched.action}`
+        : 'No rules matched.'
+    );
   };
 
   const priorityColor = (p: number) => {
@@ -23,6 +69,11 @@ export default function EscalationRules() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {!businessId && (
+        <div className="text-sm text-muted-foreground">
+          Link a business to manage escalation rules.
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="page-header">Escalation Rules</h1>
@@ -71,16 +122,16 @@ export default function EscalationRules() {
               <tr key={rule.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-1">
-                    {rule.keywords.map((k) => (
+                    {rule.keyword_or_phrase.map((k) => (
                       <span key={k} className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs">{k}</span>
                     ))}
                   </div>
                 </td>
                 <td className={cn('px-4 py-3 font-semibold', priorityColor(rule.priority))}>P{rule.priority}</td>
-                <td className="px-4 py-3 capitalize text-muted-foreground">{rule.action_type}</td>
+                <td className="px-4 py-3 capitalize text-muted-foreground">{rule.action.replace('_', ' ')}</td>
                 <td className="px-4 py-3 hidden md:table-cell">
                   <div className="flex flex-wrap gap-1">
-                    {rule.notify_users.map((u) => (
+                    {(rule.notify_user_ids || []).map((u) => (
                       <span key={u} className="text-xs text-muted-foreground">{u}</span>
                     ))}
                   </div>
@@ -88,7 +139,12 @@ export default function EscalationRules() {
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">
                     <button className="p-1.5 rounded-lg hover:bg-muted transition-colors"><Edit2 className="w-3.5 h-3.5 text-muted-foreground" /></button>
-                    <button className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors"><Trash2 className="w-3.5 h-3.5 text-destructive" /></button>
+                    <button
+                      onClick={() => deleteRule.mutate(rule.id)}
+                      className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -103,28 +159,50 @@ export default function EscalationRules() {
             <DialogTitle className="flex items-center gap-2"><ShieldAlert className="w-5 h-5 text-primary" /> New Escalation Rule</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {formError && (
+              <div className="text-xs text-destructive bg-destructive/10 rounded-md px-3 py-2">
+                {formError}
+              </div>
+            )}
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Keywords (comma-separated)</label>
-              <input className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="refund, charge, billing" />
+              <input
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                placeholder="refund, charge, billing"
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Priority</label>
-                <select className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
                   {[1,2,3,4,5].map(p => <option key={p} value={p}>P{p}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">Action Type</label>
-                <select className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50">
-                  <option value="notify">Notify</option>
-                  <option value="transfer">Transfer</option>
-                  <option value="escalate">Escalate</option>
+                <select
+                  value={action}
+                  onChange={(e) => setAction(e.target.value as 'notify_owner' | 'notify_staff' | 'takeover_prompt')}
+                  className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="notify_owner">Notify Owner</option>
+                  <option value="notify_staff">Notify Staff</option>
+                  <option value="takeover_prompt">Takeover Prompt</option>
                 </select>
               </div>
             </div>
-            <button className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity">
-              Create Rule
+            <button
+              onClick={() => createRule.mutate()}
+              disabled={!businessId || !keywords || createRule.isPending}
+              className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {createRule.isPending ? 'Creating...' : 'Create Rule'}
             </button>
           </div>
         </DialogContent>

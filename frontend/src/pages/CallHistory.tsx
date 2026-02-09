@@ -1,28 +1,47 @@
-import { useState } from 'react';
-import { mockCalls } from '@/lib/mockData';
+import { useMemo, useState } from 'react';
 import { CallDetailModal } from '@/components/CallDetailModal';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Search, Download } from 'lucide-react';
 import type { Call } from '@/types';
+import { useAuthStore } from '@/stores/authStore';
+import { useQuery } from '@tanstack/react-query';
+import { listCalls } from '@/api/calls';
 
 export default function CallHistory() {
   const [selectedCall, setSelectedCall] = useState<Call | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const businessId = useAuthStore((s) => s.user?.business_id || '');
 
-  const filtered = mockCalls.filter((c) => {
-    const matchSearch = !search || c.caller_name?.toLowerCase().includes(search.toLowerCase()) || c.caller_number.includes(search);
-    const matchStatus = statusFilter === 'all' || c.status === statusFilter;
-    return matchSearch && matchStatus;
+  const callsQuery = useQuery({
+    queryKey: ['calls', businessId, 'history'],
+    queryFn: () => listCalls({ business_id: businessId, limit: 50, offset: 0 }),
+    enabled: Boolean(businessId),
   });
+  const calls = callsQuery.data || [];
+
+  const filtered = useMemo(() => {
+    return calls.filter((c) => {
+      const matchSearch = !search || c.caller_number.includes(search);
+      const matchStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' ? !c.ended_at : c.status === statusFilter);
+      return matchSearch && matchStatus;
+    });
+  }, [calls, search, statusFilter]);
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {!businessId && (
+        <div className="text-sm text-muted-foreground">
+          Link a business to view call history.
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="page-header">Call History</h1>
-          <p className="text-sm text-muted-foreground mt-1">{mockCalls.length} total calls</p>
+          <p className="text-sm text-muted-foreground mt-1">{calls.length} total calls</p>
         </div>
         <button className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted hover:bg-muted/80 text-sm font-medium transition-colors">
           <Download className="w-4 h-4" /> Export CSV
@@ -33,7 +52,7 @@ export default function CallHistory() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
-            placeholder="Search by name or number..."
+            placeholder="Search by caller number..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 rounded-lg bg-muted/50 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -66,17 +85,17 @@ export default function CallHistory() {
             {filtered.map((call) => (
               <tr key={call.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer transition-colors" onClick={() => setSelectedCall(call)}>
                 <td className="px-4 py-3">
-                  <p className="font-medium">{call.caller_name || call.caller_number}</p>
+                  <p className="font-medium">{call.caller_number}</p>
                   <p className="text-xs text-muted-foreground">{call.caller_number}</p>
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">{format(new Date(call.started_at), 'MMM d, yyyy h:mm a')}</td>
-                <td className="px-4 py-3 text-muted-foreground">{Math.floor(call.duration / 60)}:{(call.duration % 60).toString().padStart(2, '0')}</td>
+                <td className="px-4 py-3 text-muted-foreground">{Math.floor((call.duration_seconds || 0) / 60)}:{((call.duration_seconds || 0) % 60).toString().padStart(2, '0')}</td>
                 <td className="px-4 py-3">
                   <span className={cn(
-                    call.status === 'active' ? 'badge-live' : call.status === 'escalated' ? 'badge-escalated' : 'badge-completed'
-                  )}>{call.status}</span>
+                    !call.ended_at ? 'badge-live' : call.status === 'escalated' ? 'badge-escalated' : 'badge-completed'
+                  )}>{call.ended_at ? call.status : 'active'}</span>
                 </td>
-                <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">{call.escalated_to || '—'}</td>
+                <td className="px-4 py-3 text-muted-foreground hidden lg:table-cell">{call.escalated_to_user_id || '—'}</td>
               </tr>
             ))}
           </tbody>

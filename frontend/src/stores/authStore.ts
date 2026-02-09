@@ -9,6 +9,7 @@ interface AuthState {
   isAuthenticated: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
+  setUser: (user: User) => void;
   toggleTheme: () => void;
   setTheme: (theme: 'dark' | 'light') => void;
 }
@@ -22,6 +23,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       login: (token, user) => set({ token, user, isAuthenticated: true }),
       logout: () => set({ token: null, user: null, isAuthenticated: false }),
+      setUser: (user) => set({ user }),
       toggleTheme: () => set((state) => {
         const newTheme = state.theme === 'dark' ? 'light' : 'dark';
         document.documentElement.classList.toggle('dark', newTheme === 'dark');

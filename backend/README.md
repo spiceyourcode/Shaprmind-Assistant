@@ -14,6 +14,12 @@ FastAPI backend for an AI-powered call representative. Integrates Telnyx, Deepgr
 4. Start the API:
    - `uvicorn app.main:app --reload`
 
+## Frontend integration
+
+- Set `CORS_ALLOW_ORIGINS` in `.env` to match your frontend URL(s), e.g.:
+  - `CORS_ALLOW_ORIGINS=http://localhost:5173,http://localhost:8080`
+- Socket.IO is mounted at `/ws/alerts` and expects a JWT via `auth.token`.
+
 ## Local Notes
 
 - Supabase Postgres needs the `pgvector` extension enabled.
