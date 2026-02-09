@@ -5,9 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import create_access_token, hash_password, verify_password
 from app.core.rate_limit import limiter
 from app.db.models import User, UserRole
-from app.deps import get_optional_user, require_owner, require_same_business
+from app.deps import get_current_user, get_optional_user, require_owner, require_same_business
 from app.db.session import get_session
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
+from app.schemas.users import UserResponse
 
 
 router = APIRouter()
@@ -56,3 +57,8 @@ async def register(
     await session.refresh(user)
     token = create_access_token(str(user.id))
     return TokenResponse(access_token=token)
+
+
+@router.get("/me", response_model=UserResponse)
+async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
+    return UserResponse.model_validate(current_user)

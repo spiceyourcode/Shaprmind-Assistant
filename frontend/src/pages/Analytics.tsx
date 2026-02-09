@@ -4,7 +4,7 @@ import { Phone, TrendingUp, AlertTriangle, Clock } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useAuthStore } from '@/stores/authStore';
 import { useQuery } from '@tanstack/react-query';
-import { getAnalyticsSummary } from '@/api/analytics';
+import { getAnalyticsSeries, getAnalyticsSummary } from '@/api/analytics';
 
 const CHART_COLORS = ['hsl(175, 80%, 45%)', 'hsl(210, 70%, 50%)', 'hsl(38, 85%, 50%)', 'hsl(0, 72%, 51%)', 'hsl(220, 10%, 50%)'];
 
@@ -17,6 +17,12 @@ export default function Analytics() {
     enabled: Boolean(businessId),
   });
   const data = summaryQuery.data;
+  const seriesQuery = useQuery({
+    queryKey: ['analytics-series', businessId, period],
+    queryFn: () => getAnalyticsSeries(businessId, period),
+    enabled: Boolean(businessId),
+  });
+  const series = seriesQuery.data;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -53,7 +59,7 @@ export default function Analytics() {
         <div className="glass-card p-5">
           <h3 className="text-sm font-semibold mb-4">Call Volume</h3>
           <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={[]}>
+            <LineChart data={series?.call_volume || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="date" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
               <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
@@ -61,7 +67,9 @@ export default function Analytics() {
               <Line type="monotone" dataKey="count" stroke="hsl(175, 80%, 45%)" strokeWidth={2} dot={{ fill: 'hsl(175, 80%, 45%)', r: 4 }} />
             </LineChart>
           </ResponsiveContainer>
-          <p className="text-xs text-muted-foreground mt-2">Chart data requires backend analytics series.</p>
+          {!series && (
+            <p className="text-xs text-muted-foreground mt-2">Loading call volume...</p>
+          )}
         </div>
 
         {/* Escalation Reasons */}
@@ -69,18 +77,20 @@ export default function Analytics() {
           <h3 className="text-sm font-semibold mb-4">Escalation Reasons</h3>
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
-              <Pie data={[]} dataKey="count" nameKey="reason" cx="50%" cy="50%" outerRadius={90} />
+              <Pie data={series?.escalation_reasons || []} dataKey="count" nameKey="reason" cx="50%" cy="50%" outerRadius={90} />
               <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
             </PieChart>
           </ResponsiveContainer>
-          <p className="text-xs text-muted-foreground mt-2">Chart data requires backend analytics series.</p>
+          {!series && (
+            <p className="text-xs text-muted-foreground mt-2">Loading escalation breakdown...</p>
+          )}
         </div>
 
         {/* Duration by Day */}
         <div className="glass-card p-5 lg:col-span-2">
           <h3 className="text-sm font-semibold mb-4">Average Duration by Day</h3>
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={[]}>
+            <BarChart data={series?.duration_by_day || []}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="day" tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
               <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(v) => `${Math.floor(v / 60)}m`} />
@@ -88,7 +98,9 @@ export default function Analytics() {
               <Bar dataKey="avg_duration" fill="hsl(175, 80%, 45%)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
-          <p className="text-xs text-muted-foreground mt-2">Chart data requires backend analytics series.</p>
+          {!series && (
+            <p className="text-xs text-muted-foreground mt-2">Loading duration series...</p>
+          )}
         </div>
       </div>
     </div>

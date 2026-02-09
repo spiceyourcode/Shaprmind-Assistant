@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils';
 import type { KnowledgeCategory } from '@/types';
 import { useAuthStore } from '@/stores/authStore';
 import { uploadKnowledge } from '@/api/businesses';
+import { listKnowledge } from '@/api/knowledgeBase';
+import { useQuery } from '@tanstack/react-query';
 import { getApiErrorMessage } from '@/api/client';
 
 export default function KnowledgeBase() {
@@ -18,18 +20,31 @@ export default function KnowledgeBase() {
   const [saving, setSaving] = useState(false);
   const businessId = useAuthStore((s) => s.user?.business_id || '');
 
+  const knowledgeQuery = useQuery({
+    queryKey: ['knowledge', businessId],
+    queryFn: () => listKnowledge(businessId),
+    enabled: Boolean(businessId),
+  });
+
+  const remoteCategories = (knowledgeQuery.data || []).map((cat) => ({
+    ...cat,
+    id: cat.id || cat.category || crypto.randomUUID(),
+    name: cat.name || cat.category,
+  }));
+
   const startEdit = (cat: KnowledgeCategory) => {
     setEditingId(cat.id);
     setEditContent(cat.content);
   };
 
   const saveEdit = async (id: string) => {
-    const target = categories.find((c) => c.id === id);
+    const target = [...remoteCategories, ...categories].find((c) => c.id === id);
     if (!target || !businessId) return;
     setSaving(true);
     setError(null);
     try {
-      await uploadKnowledge(businessId, { category: target.name, content: editContent });
+      const category = target.name || target.category || 'General';
+      await uploadKnowledge(businessId, { category, content: editContent });
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
@@ -39,7 +54,10 @@ export default function KnowledgeBase() {
     setEditingId(null);
   };
 
-  const filtered = categories.filter((c) => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.content.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filtered = [...remoteCategories, ...categories].filter((c) => {
+    const name = (c.name || c.category || '').toLowerCase();
+    return name.includes(searchQuery.toLowerCase()) || c.content.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -59,6 +77,7 @@ export default function KnowledgeBase() {
             const next: KnowledgeCategory = {
               id: crypto.randomUUID(),
               name: newName,
+              category: newName,
               content: newContent,
               updated_at: new Date().toISOString().split('T')[0],
             };
@@ -126,6 +145,7 @@ export default function KnowledgeBase() {
         {filtered.map((cat) => {
           const isExpanded = expandedId === cat.id;
           const isEditing = editingId === cat.id;
+          const displayName = cat.name || cat.category || 'Category';
           return (
             <div key={cat.id} className="glass-card overflow-hidden">
               <button
@@ -134,7 +154,7 @@ export default function KnowledgeBase() {
               >
                 <div className="flex items-center gap-3">
                   <BookOpen className="w-4 h-4 text-primary" />
-                  <span className="font-medium text-sm">{cat.name}</span>
+                  <span className="font-medium text-sm">{displayName}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-muted-foreground">Updated {cat.updated_at}</span>

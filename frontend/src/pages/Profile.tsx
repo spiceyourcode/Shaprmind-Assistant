@@ -17,14 +17,23 @@ export default function Profile() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Email</label>
-            <input defaultValue={user?.email || ''} className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            <input
+              value={user?.email || ''}
+              readOnly
+              className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm"
+            />
           </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Phone</label>
-            <input defaultValue={user?.phone || ''} className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" type="tel" />
+            <input
+              value={user?.phone || ''}
+              readOnly
+              className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm"
+              type="tel"
+            />
           </div>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+        <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium opacity-70 cursor-not-allowed">
           <Save className="w-4 h-4" /> Save Profile
         </button>
       </div>
@@ -36,14 +45,14 @@ export default function Profile() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Business Name</label>
-              <input defaultValue="Sharp Mind AI" className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+            <input value="Sharp Mind AI" readOnly className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm" />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Business Phone</label>
-              <input defaultValue="+1 (555) 000-0000" className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" type="tel" />
+            <input value="+1 (555) 000-0000" readOnly className="w-full px-3 py-2 rounded-lg bg-muted/50 border border-border text-sm" type="tel" />
             </div>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
+          <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium opacity-70 cursor-not-allowed">
             <Save className="w-4 h-4" /> Save Business
           </button>
         </div>

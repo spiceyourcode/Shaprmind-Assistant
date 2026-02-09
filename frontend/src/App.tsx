@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 import { connectSocket, disconnectSocket, joinBusinessRoom } from "@/services/socketService";
+import { getMe } from "@/api/users";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import CallHistory from "./pages/CallHistory";
@@ -25,6 +26,7 @@ function ThemeInitializer({ children }: { children: React.ReactNode }) {
   const theme = useAuthStore((s) => s.theme);
   const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, [theme]);
@@ -34,10 +36,13 @@ function ThemeInitializer({ children }: { children: React.ReactNode }) {
       if (user?.business_id) {
         joinBusinessRoom(user.business_id);
       }
+      if (!user) {
+        getMe().then(setUser).catch(() => null);
+      }
     } else {
       disconnectSocket();
     }
-  }, [token, user?.business_id]);
+  }, [token, user, user?.business_id, setUser]);
   return <>{children}</>;
 }
 

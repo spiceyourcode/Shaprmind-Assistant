@@ -6,6 +6,7 @@ from app.deps import get_current_user, require_owner, require_same_business
 from app.db.models import Business, KnowledgeBase, User
 from app.db.session import get_session
 from app.schemas.businesses import BusinessCreate, BusinessResponse, KnowledgeBaseUpload
+from app.schemas.knowledge_base import KnowledgeBaseCategoryResponse
 from app.services.knowledge_base import chunk_text, embed_many
 
 
@@ -70,3 +71,32 @@ async def upload_knowledge(
         session.add(kb)
     await session.commit()
     return {"status": "ok", "chunks": len(chunks)}
+
+
+@router.get("/{business_id}/knowledge", response_model=list[KnowledgeBaseCategoryResponse])
+async def list_knowledge(
+    business_id: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> list[KnowledgeBaseCategoryResponse]:
+    require_same_business(current_user, business_id)
+    result = await session.execute(
+        select(KnowledgeBase)
+        .where(KnowledgeBase.business_id == business_id)
+        .order_by(KnowledgeBase.category.asc(), KnowledgeBase.chunk_index.asc())
+    )
+    rows = result.scalars().all()
+    grouped: dict[str, KnowledgeBaseCategoryResponse] = {}
+    for row in rows:
+        if row.category not in grouped:
+            grouped[row.category] = KnowledgeBaseCategoryResponse(
+                category=row.category,
+                content=row.content,
+                updated_at=row.updated_at,
+            )
+        else:
+            grouped[row.category].content += f"\n{row.content}"
+            if row.updated_at and grouped[row.category].updated_at:
+                if row.updated_at > grouped[row.category].updated_at:
+                    grouped[row.category].updated_at = row.updated_at
+    return list(grouped.values())

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.deps import get_current_user, require_owner, require_same_business
 from app.db.models import Call, CallMessage, User
 from app.db.session import get_session
-from app.schemas.analytics import AnalyticsSummaryResponse
+from app.schemas.analytics import AnalyticsSeriesResponse, AnalyticsSummaryResponse, CallVolumePoint, DurationByDayPoint, EscalationReasonPoint
 
 
 router = APIRouter()
@@ -52,4 +52,53 @@ async def summary(
         avg_duration=float(avg_duration.scalar() or 0),
         escalation_rate=escalation_rate,
         sentiment_avg=sentiment_avg.scalar(),
+    )
+
+
+@router.get("/series", response_model=AnalyticsSeriesResponse)
+async def series(
+    business_id: str = Query(...),
+    period: str = Query("30d"),
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> AnalyticsSeriesResponse:
+    require_owner(current_user)
+    require_same_business(current_user, business_id)
+    days = int(period.rstrip("d"))
+    since = datetime.utcnow() - timedelta(days=days)
+
+    calls_by_day = await session.execute(
+        select(func.date_trunc("day", Call.started_at), func.count(Call.id))
+        .where(Call.business_id == business_id, Call.started_at >= since)
+        .group_by(func.date_trunc("day", Call.started_at))
+        .order_by(func.date_trunc("day", Call.started_at))
+    )
+    volume_points = [
+        CallVolumePoint(date=row[0].strftime("%Y-%m-%d"), count=row[1])
+        for row in calls_by_day.all()
+    ]
+
+    duration_by_day = await session.execute(
+        select(func.date_trunc("day", Call.started_at), func.avg(Call.duration_seconds))
+        .where(Call.business_id == business_id, Call.started_at >= since)
+        .group_by(func.date_trunc("day", Call.started_at))
+        .order_by(func.date_trunc("day", Call.started_at))
+    )
+    duration_points = [
+        DurationByDayPoint(day=row[0].strftime("%a"), avg_duration=float(row[1] or 0))
+        for row in duration_by_day.all()
+    ]
+
+    escalated_count = await session.execute(
+        select(func.count(Call.id))
+        .where(Call.business_id == business_id, Call.started_at >= since, Call.status == "escalated")
+    )
+    escalation_reasons = [
+        EscalationReasonPoint(reason="Escalated", count=escalated_count.scalar() or 0)
+    ]
+
+    return AnalyticsSeriesResponse(
+        call_volume=volume_points,
+        escalation_reasons=escalation_reasons,
+        duration_by_day=duration_points,
     )

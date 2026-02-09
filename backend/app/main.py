@@ -7,7 +7,7 @@ from app.core.config import get_settings
 from app.core.logging import configure_logging, get_logger
 from app.core.rate_limit import limiter
 from app.realtime.socket import socket_app
-from app.routers import analytics, auth, businesses, calls, customers, escalation_rules, media, supabase, webhooks
+from app.routers import analytics, auth, businesses, calls, customers, escalation_rules, media, supabase, users, webhooks
 
 OPENAPI_TAGS = [
     {"name": "auth", "description": "Authentication and token management."},
@@ -67,6 +67,7 @@ def create_app() -> FastAPI:
     app.include_router(webhooks.router, prefix="/api/v1/webhooks", tags=["webhooks"])
     app.include_router(media.router, prefix="/api/v1", tags=["media"])
     app.include_router(supabase.router, prefix="/api/v1", tags=["supabase"])
+    app.include_router(users.router, prefix="/api/v1", tags=["users"])
 
     app.mount("/ws/alerts", socket_app)
 

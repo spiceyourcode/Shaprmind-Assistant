@@ -62,8 +62,9 @@ export interface EscalationRule {
 }
 
 export interface KnowledgeCategory {
-  id: string;
-  name: string;
+  id?: string;
+  name?: string;
+  category?: string;
   content: string;
   updated_at: string;
 }

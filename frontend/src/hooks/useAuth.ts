@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { login, register, type RegisterRequest } from "@/api/auth";
+import { getMe } from "@/api/users";
 import { getApiErrorMessage } from "@/api/client";
 import { useAuthStore } from "@/stores/authStore";
 
@@ -19,6 +20,8 @@ export function useAuth() {
         role: "owner",
         business_id: "",
       });
+      const me = await getMe();
+      authStore.setUser(me);
     } catch (err) {
       setError(getApiErrorMessage(err));
       throw err;
@@ -38,6 +41,8 @@ export function useAuth() {
         role: payload.role,
         business_id: payload.business_id ?? "",
       });
+      const me = await getMe();
+      authStore.setUser(me);
     } catch (err) {
       setError(getApiErrorMessage(err));
       throw err;
