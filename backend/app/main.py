@@ -69,7 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(supabase.router, prefix="/api/v1", tags=["supabase"])
     app.include_router(users.router, prefix="/api/v1", tags=["users"])
 
-    app.mount("/ws/alerts", socket_app)
+    app.mount("/ws/alerts/socket.io", socket_app)
 
     logger.info("app_initialized", env=settings.app_env)
     return app

@@ -1,11 +1,12 @@
 import socketio
-from fastapi import HTTPException
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.core.security import decode_token
 from app.services.session_state import update_session
 
+
+from socketio.exceptions import ConnectionRefusedError
 
 logger = get_logger()
 settings = get_settings()
@@ -15,7 +16,8 @@ else:
     cors_origins = ["http://localhost:5173", "http://localhost:8080"]
 
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=cors_origins)
-_raw_socket_app = socketio.ASGIApp(sio)
+# Set socketio_path to empty string because we mount this app at the full path in main.py
+_raw_socket_app = socketio.ASGIApp(sio, socketio_path="")
 
 
 async def _socket_app(scope, receive, send):
@@ -26,13 +28,32 @@ async def _socket_app(scope, receive, send):
     """
     if scope.get("type") == "websocket":
         path = (scope.get("path") or "").rstrip("/")
-        # Socket.IO uses path ending with /socket.io (e.g. /ws/alerts/socket.io)
-        if not path.endswith("socket.io") and "/socket.io" not in path:
-            # Accept then close so we never send HTTP on a WebSocket
-            await send({"type": "websocket.accept"})
-            await send({"type": "websocket.close", "code": 1000, "reason": "Use Socket.IO path"})
-            return
-    await _raw_socket_app(scope, receive, send)
+        
+        # Defensive wrapper to prevent RuntimeError if engineio sends http.response.start on a WebSocket scope
+        async def safe_send(message):
+            if message["type"] == "http.response.start":
+                status = message.get("status", 404)
+                logger.warning("socket_ws_intercept_http", path=path, status=status)
+                # We can't send HTTP here, so we must close the WebSocket
+                try:
+                    await send({"type": "websocket.accept"})
+                except Exception:  # noqa: BLE001
+                    pass
+                await send({"type": "websocket.close", "code": 1000, "reason": f"Path not found: {path}"})
+                return
+            await send(message)
+
+        try:
+            await _raw_socket_app(scope, receive, safe_send)
+        except Exception as exc:
+            logger.error("socket_app_error", error=str(exc), path=path)
+            # Ensure we close the websocket on error too
+            try:
+                await send({"type": "websocket.close", "code": 1011, "reason": "Internal Error"})
+            except Exception:  # noqa: BLE001
+                pass
+    else:
+        await _raw_socket_app(scope, receive, send)
 
 
 socket_app = _socket_app
@@ -40,14 +61,17 @@ socket_app = _socket_app
 
 @sio.event
 async def connect(sid, environ, auth):
+    logger.info("socket_connect_attempt", sid=sid)
     token = (auth or {}).get("token")
     if not token:
-        raise HTTPException(status_code=401, detail="Missing token")
+        logger.warning("socket_auth_missing", sid=sid)
+        raise ConnectionRefusedError("Missing token")
     try:
         payload = decode_token(token)
+        logger.info("socket_auth_success", sid=sid, user_id=payload.get("sub"))
     except Exception as exc:  # noqa: BLE001
-        logger.warning("socket_auth_failed", error=str(exc))
-        raise HTTPException(status_code=401, detail="Invalid token") from exc
+        logger.warning("socket_auth_failed", sid=sid, error=str(exc))
+        raise ConnectionRefusedError("Invalid token") from exc
     await sio.save_session(sid, {"user_id": payload.get("sub")})
 
 
