@@ -48,6 +48,25 @@ async def get_business(
     return BusinessResponse.model_validate(business)
 
 
+@router.get("/lookup/by-phone", response_model=BusinessResponse)
+async def lookup_business_by_phone(
+    phone_number: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> BusinessResponse:
+    require_owner(current_user)
+    result = await session.execute(
+        select(Business).where(
+            Business.phone_number == phone_number,
+            Business.owner_user_id == current_user.id,
+        )
+    )
+    business = result.scalar_one_or_none()
+    if not business:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Business not found")
+    return BusinessResponse.model_validate(business)
+
+
 @router.put("/{business_id}/knowledge", response_model=dict)
 async def upload_knowledge(
     business_id: str,

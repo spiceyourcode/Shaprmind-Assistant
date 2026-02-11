@@ -17,8 +17,7 @@
           "  pm.collectionVariables.set('owner_password', 'ChangeMe123!');",
           "}",
           "if (!pm.collectionVariables.get('business_phone')) {",
-          "  const rand = Math.floor(10000 + Math.random() * 90000);",
-          "  pm.collectionVariables.set('business_phone', `+15555${rand}`);",
+          "  pm.collectionVariables.set('business_phone', '+14698879267');",
           "}"
         ]
       }
@@ -30,7 +29,11 @@
     { "key": "access_token", "value": "" },
     { "key": "owner_email", "value": "" },
     { "key": "owner_password", "value": "" },
-    { "key": "business_phone", "value": "" },
+    { "key": "business_phone", "value": "+14698879267" },
+    { "key": "pet_business_name", "value": "Sharp Mind Pets (Cats & Dogs)" },
+    { "key": "staff_password", "value": "ChangeMe123!" },
+    { "key": "staff_user_email_1", "value": "staff-cats@example.com" },
+    { "key": "staff_user_email_2", "value": "staff-dogs@example.com" },
     { "key": "business_id", "value": "" },
     { "key": "call_id", "value": "" },
     { "key": "profile_id", "value": "" },
@@ -134,7 +137,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Sharp Mind Demo\",\n  \"phone_number\": \"{{business_phone}}\"\n}"
+              "raw": "{\n  \"name\": \"{{pet_business_name}}\",\n  \"phone_number\": \"{{business_phone}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/businesses",
@@ -451,6 +454,190 @@
               "raw": "{{baseUrl}}/api/v1/supabase",
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "supabase"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Seed - Pets Business",
+      "item": [
+        {
+          "name": "Create Pets Business",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) {",
+                  "    pm.collectionVariables.set('business_id', json.id);",
+                  "  }",
+                  "} else if (pm.response.code === 400) {",
+                  "  const baseUrl = pm.collectionVariables.get('baseUrl');",
+                  "  const phone = pm.collectionVariables.get('business_phone');",
+                  "  pm.sendRequest({",
+                  "    url: `${baseUrl}/api/v1/businesses/lookup/by-phone?phone_number=${encodeURIComponent(phone)}`,",
+                  "    method: 'GET',",
+                  "    header: { Authorization: `Bearer ${pm.collectionVariables.get('access_token')}` }",
+                  "  }, (err, res) => {",
+                  "    if (!err && res && res.code === 200) {",
+                  "      const data = res.json();",
+                  "      if (data.id) {",
+                  "        pm.collectionVariables.set('business_id', data.id);",
+                  "      }",
+                  "    }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{pet_business_name}}\",\n  \"phone_number\": \"{{business_phone}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses"]
+            }
+          }
+        },
+        {
+          "name": "Lookup Business by Phone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json.id) {",
+                  "    pm.collectionVariables.set('business_id', json.id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/lookup/by-phone?phone_number={{business_phone}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "lookup", "by-phone"],
+              "query": [{ "key": "phone_number", "value": "{{business_phone}}" }]
+            }
+          }
+        },
+        {
+          "name": "Upload Knowledge - Cats",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Cats\",\n  \"content\": \"Cats: vaccination schedule, common illnesses (URI, dental), grooming guidance, and boarding policy. Emergency signs: refusal to eat >24h, labored breathing, persistent vomiting.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{business_id}}/knowledge",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "{{business_id}}", "knowledge"]
+            }
+          }
+        },
+        {
+          "name": "Upload Knowledge - Dogs",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"category\": \"Dogs\",\n  \"content\": \"Dogs: core vaccines (DHPP, Rabies), parasite prevention, grooming schedule, and boarding requirements. Emergency signs: bloat, collapse, seizures.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{business_id}}/knowledge",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "{{business_id}}", "knowledge"]
+            }
+          }
+        },
+        {
+          "name": "Create Escalation Rule - Aggression",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"keywords\": [\"bite\", \"aggressive\", \"attack\", \"injury\"],\n  \"priority\": 2,\n  \"action\": \"notify_owner\",\n  \"notify_user_ids\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{business_id}}/escalation-rules",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "{{business_id}}", "escalation-rules"]
+            }
+          }
+        },
+        {
+          "name": "Create Escalation Rule - Billing",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"keywords\": [\"refund\", \"charge\", \"invoice\", \"billing\"],\n  \"priority\": 1,\n  \"action\": \"notify_staff\",\n  \"notify_user_ids\": []\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{business_id}}/escalation-rules",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "{{business_id}}", "escalation-rules"]
+            }
+          }
+        },
+        {
+          "name": "Create Staff User - Cats",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{staff_user_email_1}}\",\n  \"password\": \"{{staff_password}}\",\n  \"role\": \"staff\",\n  \"phone\": \"+14698870001\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users"]
+            }
+          }
+        },
+        {
+          "name": "Create Staff User - Dogs",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{access_token}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{staff_user_email_2}}\",\n  \"password\": \"{{staff_password}}\",\n  \"role\": \"staff\",\n  \"phone\": \"+14698870002\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users"]
             }
           }
         }

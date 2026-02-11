@@ -15,7 +15,27 @@ else:
     cors_origins = ["http://localhost:5173", "http://localhost:8080"]
 
 sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=cors_origins)
-socket_app = socketio.ASGIApp(sio)
+_raw_socket_app = socketio.ASGIApp(sio)
+
+
+async def _socket_app(scope, receive, send):
+    """Wrap Socket.IO app so stray WebSocket connections to non-Socket.IO paths
+    are closed with a proper WebSocket close instead of an HTTP 404. Engine.IO
+    would send http.response.start on a WebSocket scope and cause:
+    RuntimeError: Expected ASGI message 'websocket.accept'... but got 'http.response.start'.
+    """
+    if scope.get("type") == "websocket":
+        path = (scope.get("path") or "").rstrip("/")
+        # Socket.IO uses path ending with /socket.io (e.g. /ws/alerts/socket.io)
+        if not path.endswith("socket.io") and "/socket.io" not in path:
+            # Accept then close so we never send HTTP on a WebSocket
+            await send({"type": "websocket.accept"})
+            await send({"type": "websocket.close", "code": 1000, "reason": "Use Socket.IO path"})
+            return
+    await _raw_socket_app(scope, receive, send)
+
+
+socket_app = _socket_app
 
 
 @sio.event
