@@ -1,8 +1,29 @@
+import os
 from functools import lru_cache
-from pydantic_settings import BaseSettings
+from pathlib import Path
+from typing import Any
+
+from dotenv import load_dotenv
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Get the directory of the current file and find the .env file in the backend root
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+env_path = BASE_DIR / ".env"
+
+# Explicitly load .env with override=True to prioritize it over system environment variables
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path, override=True)
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore"
+    )
+
     app_env: str = "development"
     app_name: str = "Sharp Mind AI Rep"
     jwt_secret: str
@@ -49,10 +70,13 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 120
     public_base_url: str | None = None
 
-    class Config:
-        env_file = ".env"
-        env_prefix = ""
-        case_sensitive = False
+    @field_validator("openai_api_key", "deepgram_api_key", "elevenlabs_api_key", "telnyx_api_key", mode="before")
+    @classmethod
+    def strip_keys(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return v.strip().strip("'").strip('"')
+        return v
+
 
 
 @lru_cache
